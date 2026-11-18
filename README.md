@@ -4,7 +4,11 @@
 
 ## Запуск у браузері
 
-Після додавання цих файлів до приватного репозиторію GitHub відкрийте **Code → Codespaces → Create codespace**. Конфігурація репозиторію запускає PostgreSQL і контейнер Node.js. Залежності встановлюються у віддаленому середовищі. У терміналі Codespaces виконайте:
+Опублікована стартова сторінка працює на Vercel. Проєкт збирає `apps/web` із гілки `main`. Для перегляду достатньо браузера. [Відкрити Lead Finder](https://lead-finder-bay-five.vercel.app)
+
+Для розробки відкрийте **Code → Codespaces → Create codespace** у репозиторії. Конфігурація запускає PostgreSQL і контейнер Node.js. Залежності встановлюються у віддаленому середовищі. [Репозиторій GitHub](https://github.com/LeoFom/lead-finder)
+
+У терміналі Codespaces виконайте команди нижче.
 
 ```sh
 pnpm db:validate
@@ -52,7 +56,7 @@ pnpm build
 
 `pnpm format` форматує код і документацію. `pnpm format:check` перевіряє формат. Вихідне ТЗ виключено з автоматичних змін форматування.
 
-GitHub Actions запускає перелічені перевірки на push, pull request або вручну, створює тимчасову PostgreSQL 17 і перевіряє старт `pnpm dev` для web, API й worker. Якщо початкового lock-файлу ще немає, workflow розв’язує залежності на runner, зберігає `pnpm-lock.yaml` в артефакті **pnpm-lock** та виконує frozen install. Після першої успішної збірки додайте цей файл у репозиторій. Надалі CI використовує закріплені версії. [Workflow](.github/workflows/ci.yml)
+GitHub Actions запускає перелічені перевірки на push, pull request або вручну, створює тимчасову PostgreSQL 17 і перевіряє старт `pnpm dev` для web, API й worker. CI та Vercel встановлюють версії з `pnpm-lock.yaml` у режимі `--frozen-lockfile`. [Workflow](.github/workflows/ci.yml)
 
 ## Структура
 
