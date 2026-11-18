@@ -1,0 +1,87 @@
+# Lead Finder
+
+Фундамент приватної CRM для дослідження локальних бізнесів. На цьому етапі є стартова сторінка українською, API-процес, окремий worker, підключення Prisma до PostgreSQL та перевірки прав на дані. Пошук, доменні таблиці й імпорт позначені в плані наступних фаз.
+
+## Запуск у браузері
+
+Після додавання цих файлів до приватного репозиторію GitHub відкрийте **Code → Codespaces → Create codespace**. Конфігурація репозиторію запускає PostgreSQL і контейнер Node.js. Залежності встановлюються у віддаленому середовищі. У терміналі Codespaces виконайте:
+
+```sh
+pnpm db:validate
+pnpm db:check
+pnpm dev
+```
+
+У вкладці **Ports** відкрийте порт **3000**. На сторінці має з’явитися Lead Finder. API слухає **3001**, запит до його кореня поки повертає 404. Worker повідомляє про ініціалізацію в терміналі. Для цього запуску ключі постачальників не потрібні. Дані dev-контейнера придатні для розробки. [GitHub Codespaces](https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/adding-a-dev-container-configuration/introduction-to-dev-containers)
+
+## Перевірка без залежностей проєкту
+
+Виконайте з кореня на Node.js 24.14+ гілки 24. Тест читає TypeScript безпосередньо засобами Node. Йому не потрібен доступ до PostgreSQL або мережі.
+
+```sh
+node --test tests/*.test.mts
+```
+
+З наявним pnpm той самий набір запускає `pnpm test`. Запуск скриптів не ініціює автоматичну інсталяцію.
+
+## Локальний запуск за бажанням
+
+Потрібні Node.js 24 (версія середовища в `.node-version`), pnpm 11.25.0 та PostgreSQL 17. Для локальної БД можна використати Docker Compose. Якщо є доступна PostgreSQL, достатньо її URL у `.env` і крок із Docker можна пропустити.
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --wait postgres
+pnpm install
+pnpm db:validate
+pnpm db:check
+pnpm dev
+```
+
+На macOS та Linux перша команда — `cp .env.example .env`. У локальному браузері відкрийте [стартову сторінку](http://localhost:3000). Параметри Compose і DATABASE_URL повинні вказувати на ту саму БД. Значення зі зразка призначені для локального loopback. Ctrl+C завершує процеси розробки. `docker compose stop` зупиняє PostgreSQL зі збереженням тому.
+
+## Перевірки та CI
+
+```sh
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm db:validate
+pnpm db:check
+pnpm build
+```
+
+`pnpm format` форматує код і документацію. `pnpm format:check` перевіряє формат. Вихідне ТЗ виключено з автоматичних змін форматування.
+
+GitHub Actions запускає перелічені перевірки на push, pull request або вручну, створює тимчасову PostgreSQL 17 і перевіряє старт `pnpm dev` для web, API й worker. Якщо початкового lock-файлу ще немає, workflow розв’язує залежності на runner, зберігає `pnpm-lock.yaml` в артефакті **pnpm-lock** та виконує frozen install. Після першої успішної збірки додайте цей файл у репозиторій. Надалі CI використовує закріплені версії. [Workflow](.github/workflows/ci.yml)
+
+## Структура
+
+```text
+apps/
+  web/app/             layout, стартова сторінка, стилі
+  api/src/             HTTP-процес NestJS
+  worker/src/          фоновий процес NestJS
+packages/
+  shared/src/          типи джерел і походження
+  data-sources/src/    перевірка прав на операцію
+  db/                  конфігурація Prisma, datasource, проба SELECT 1
+tests/                 тести політики та strict-конфігурація
+docs/
+  PRD.md
+  ARCHITECTURE.md
+  DATA_SOURCES_AND_LICENSES.md
+  DEPLOY_RENDER.md
+  adr/0001-source-rights.md
+  adr/0002-incremental-sync.md
+.devcontainer/         конфігурація хмарного робочого середовища
+.github/workflows/     CI з PostgreSQL
+compose.yaml           локальна PostgreSQL з іменованим томом
+AGENTS.md              правила наступних змін
+LEAD_FINDER_TECHNICAL_SPEC_UA.md
+```
+
+Кореневі `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `eslint.config.mjs`, `.prettierrc.json` та `.env.example` задають спільні правила. Кожен із шести пакетів має власні manifest і tsconfig. [Архітектура](docs/ARCHITECTURE.md) · [Вимоги й критерії](docs/PRD.md) · [План Render](docs/DEPLOY_RENDER.md)
+
+## Межа наступного завдання
+
+Після підтвердження збірки з чистого checkout наступною є **фаза 2**. За §5 ТЗ вона охоплює схему Prisma, міграції, унікальні ключі, версії фактів і події, індекси та ідемпотентний seed України й Івано-Франківська. Окремі команди імпорту та ручної CRM повинні дотримуватися правил історії й прав на дані. [Правила Codex](AGENTS.md) · [Рішення про синхронізацію](docs/adr/0002-incremental-sync.md)

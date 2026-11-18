@@ -1,0 +1,15 @@
+{
+  "name": "@lead-finder/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "validate": "prisma validate",
+    "check": "prisma db execute --file prisma/check.sql"
+  },
+  "devDependencies": {
+    "prisma": "^7.0.0"
+  }
+}

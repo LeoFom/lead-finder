@@ -1,0 +1,12 @@
+services:
+  workspace:
+    image: node:24.22.1-bookworm
+    command: sleep infinity
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lead_finder}:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/${POSTGRES_DB:-lead_finder}
+    depends_on:
+      postgres:
+        condition: service_healthy

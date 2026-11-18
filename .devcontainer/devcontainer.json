@@ -1,0 +1,13 @@
+{
+  "name": "Lead Finder",
+  "dockerComposeFile": ["../compose.yaml", "compose.yaml"],
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [3000, 3001],
+  "portsAttributes": {
+    "3000": { "label": "Lead Finder", "onAutoForward": "notify" },
+    "3001": { "label": "NestJS API", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "npm install --global pnpm@11.25.0 && pnpm install",
+  "shutdownAction": "stopCompose"
+}

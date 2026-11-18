@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+# Standalone policy tests work on Node alone. Install only on an explicit command.
+verifyDepsBeforeRun: false
+allowBuilds:
+  '@nestjs/core': false
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
+  sharp: true

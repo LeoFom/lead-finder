@@ -1,0 +1,68 @@
+name: Foundation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      DATABASE_URL: postgresql://lead_finder:ci_only@127.0.0.1:5432/lead_finder
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: lead_finder
+          POSTGRES_USER: lead_finder
+          POSTGRES_PASSWORD: ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lead_finder -d lead_finder"
+          --health-interval 5s --health-timeout 3s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+      - name: Resolve initial lockfile
+        if: hashFiles('pnpm-lock.yaml') == ''
+        run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+      - name: Save resolved dependency versions
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnpm-lock
+          path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm db:validate
+      - run: pnpm db:check
+      - run: pnpm build
+      - name: Start all three development processes
+        shell: bash
+        run: |
+          log="$RUNNER_TEMP/lead-finder-dev.log"
+          setsid pnpm dev > "$log" 2>&1 &
+          group=$!
+          trap 'kill -- -"$group" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl -fsS --max-time 3 http://127.0.0.1:3000/ -o "$RUNNER_TEMP/home.html" 2>/dev/null &&
+               grep -q '<h1>Lead Finder</h1>' "$RUNNER_TEMP/home.html" &&
+               [[ "$(curl -s --max-time 2 -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/)" == 404 ]] &&
+               grep -q 'Worker initialized' "$log"; then
+              exit 0
+            fi
+            kill -0 "$group" || break
+            sleep 2
+          done
+          cat "$log"
+          exit 1
