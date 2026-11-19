@@ -920,5 +920,174 @@ dialog::backdrop {
   border-radius: 12px;
 }
 
-.local-tools { position:fixed; bottom:12px; right:18px; z-index:22; display:flex; align-items:center; gap:10px; padding:10px 14px; background:#edf2ff; border:1px solid #c9d6ff; border-radius:8px; box-shadow:0 3px 16px #263b6022; max-width:calc(100% - 36px); flex-wrap:wrap; font-size:11px; }
-.local-tools button { color:#3154cd; font-weight:700; }
+.local-tools {
+  position: fixed;
+  bottom: 12px;
+  right: 18px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #edf2ff;
+  border: 1px solid #c9d6ff;
+  border-radius: 8px;
+  box-shadow: 0 3px 16px #263b6022;
+  max-width: calc(100% - 36px);
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.local-tools button {
+  color: #3154cd;
+  font-weight: 700;
+}
+
+.transient-page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.transient-header,
+.transient-actions,
+.transient-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.transient-header {
+  justify-content: space-between;
+  margin-bottom: 48px;
+}
+.transient-header .brand {
+  margin: 0;
+}
+.transient-page .outline,
+.transient-page .primary {
+  min-height: 44px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.transient-intro {
+  margin-bottom: 26px;
+}
+.transient-intro h1 {
+  margin-top: 18px;
+}
+.transient-intro p {
+  font-size: 18px;
+}
+.transient-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  padding: 26px;
+  margin-bottom: 20px;
+}
+.transient-card h2 {
+  font-size: 20px;
+  margin-bottom: 18px;
+}
+.transient-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.transient-fields label {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.transient-fields input,
+.transient-fields select {
+  width: 100%;
+  min-height: 46px;
+  font-weight: 400;
+  font-size: 16px;
+}
+.transient-note {
+  color: #53627a;
+  font-size: 14px;
+  margin: 16px 0 0;
+}
+.transient-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.transient-option {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid #d8e1f3;
+  border-radius: 10px;
+  background: #f8faff;
+}
+.transient-option strong {
+  color: #3154cd;
+  font-size: 17px;
+}
+.transient-option span {
+  color: #53627a;
+  font-size: 14px;
+}
+.transient-option:hover {
+  border-color: var(--blue);
+}
+.transient-privacy p {
+  color: #53627a;
+}
+.transient-privacy a,
+.transient-terms a:not(.outline) {
+  color: #3154cd;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.transient-footer {
+  color: #53627a;
+  font-size: 13px;
+}
+.transient-terms {
+  max-width: 800px;
+}
+.transient-terms h1 {
+  margin-top: 28px;
+}
+.transient-terms h2 {
+  margin-top: 28px;
+}
+@media (max-width: 700px) {
+  .transient-page {
+    padding: 20px 16px 32px;
+  }
+  .transient-header {
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+  .transient-header .brand {
+    font-size: 15px;
+  }
+  .transient-fields,
+  .transient-options {
+    grid-template-columns: 1fr;
+  }
+  .transient-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .transient-card {
+    padding: 20px;
+  }
+  .transient-intro h1 {
+    font-size: 30px;
+  }
+  .transient-intro p {
+    font-size: 16px;
+  }
+}

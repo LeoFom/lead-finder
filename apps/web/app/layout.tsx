@@ -4,7 +4,7 @@ import './theme.css';
 
 export const metadata: Metadata = {
   title: 'Lead Finder',
-  description: 'Приватна база локальних бізнесів та історії їхніх змін.',
+  description: 'Пошук локальних бізнесів без збереження пошукової видачі.',
   robots: { index: false, follow: false },
 };
 

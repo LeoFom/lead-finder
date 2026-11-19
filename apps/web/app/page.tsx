@@ -1,4 +1,4 @@
-import { PrivateApp } from './private-app';
+import { TransientSearch } from './transient-search';
 export default function HomePage() {
-  return <PrivateApp />;
+  return <TransientSearch />;
 }

@@ -1,15 +1,26 @@
 /* global self, caches, fetch, URL, Response, AbortController, setTimeout, clearTimeout */
-const shellCache = 'lead-finder-shell-v1';
+const shellCache = 'lead-finder-shell-v2';
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(shellCache)
-      .then((cache) => cache.add('/'))
+      .then((cache) => cache.addAll(['/', '/crm']))
       .then(() => self.skipWaiting()),
   );
 });
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith('lead-finder-shell-') && key !== shellCache)
+            .map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
 });
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'CACHE_SHELL') return;
@@ -31,7 +42,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/api/')
   )
     return;
-  if (event.request.mode === 'navigate' && url.pathname === '/') {
+  if (event.request.mode === 'navigate' && ['/', '/crm'].includes(url.pathname)) {
     event.respondWith(
       (async () => {
         const controller = new AbortController();
@@ -40,11 +51,11 @@ self.addEventListener('fetch', (event) => {
           const response = await fetch(event.request, { signal: controller.signal });
           if (!response.ok) throw new Error('Shell unavailable');
           const cache = await caches.open(shellCache);
-          await cache.put('/', response.clone());
+          await cache.put(url.pathname, response.clone());
           return response;
         } catch {
           return (
-            (await caches.match('/')) ??
+            (await caches.match(url.pathname)) ??
             new Response('Відкрийте застосунок онлайн один раз, щоб підготувати локальний режим.', {
               status: 503,
               headers: { 'content-type': 'text/plain;charset=utf-8' },
