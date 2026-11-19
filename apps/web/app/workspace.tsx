@@ -222,7 +222,7 @@ export function LeadWorkspace() {
         (filter !== 'no-site' || !b.website) &&
         (filter !== 'instagram' || (!!b.instagram && !b.website)) &&
         (filter !== 'priority' || b.priority === 'Високий') &&
-        (filter !== 'missing' || b.discovery === 'missing_once') &&
+        (filter !== 'missing' || ['missing_once', 'missing_multiple'].includes(b.discovery)) &&
         (filter !== 'new' || b.firstSeen === workspace.runs[0]?.at) &&
         (view !== 'CRM' || b.crm !== 'new'),
     )
@@ -556,9 +556,15 @@ export function LeadWorkspace() {
                           {date(b.lastSeen)}
                           {b.discovery !== 'seen' && (
                             <small className="discovery">
-                              {b.discovery === 'missing_once'
-                                ? 'Не знайдено у скані'
-                                : 'Повторно знайдено'}
+                              {
+                                {
+                                  unchecked: 'Не перевірено джерелом',
+                                  seen: 'Виявлено',
+                                  missing_once: 'Не знайдено у скані',
+                                  missing_multiple: 'Повторно не знайдено',
+                                  reappeared: 'Повторно знайдено',
+                                }[b.discovery]
+                              }
                             </small>
                           )}
                         </td>
