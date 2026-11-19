@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:validate": "pnpm --filter @lead-finder/db validate",
-    "db:check": "pnpm --filter @lead-finder/db check"
+    "db:check": "pnpm --filter @lead-finder/db check",
+    "test:api": "node --test tests/api.integration.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

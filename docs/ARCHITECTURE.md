@@ -1,5 +1,7 @@
 # Архітектура Lead Finder
 
+Поточний backend реалізує приватний NestJS API, Prisma migrations, сесії та ручну CRM. Топологія безкоштовного середовища Vercel → Render Free → Neon Free і фактичні маршрути описані в [BACKEND.md](BACKEND.md).
+
 ## Поточна послідовність
 
 Власник змінив порядок 18.11.2026. Після каркаса створюється інтерактивний mock frontend, потім реалізується NestJS. Контракт взаємодії та межі прототипу описані в [FRONTEND_CONTRACT.md](FRONTEND_CONTRACT.md).

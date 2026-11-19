@@ -1,0 +1,317 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CrmStatus {
+  new
+  planned
+  contacted
+  replied
+  interested
+  negotiation
+  won
+  lost
+  do_not_contact
+}
+
+enum OperatingStatus {
+  unknown
+  operational
+  temporarily_closed
+  permanently_closed
+}
+
+enum DiscoveryStatus {
+  unchecked
+  seen
+  missing_once
+  missing_multiple
+  reappeared
+}
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique
+  passwordHash    String
+  role            String    @default("owner")
+  activeProfileId String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  sessions        Session[]
+}
+
+model Session {
+  tokenHash String   @id
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model LoginAttempt {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+}
+
+model Country {
+  id     String @id @default(uuid()) @db.Uuid
+  iso2   String @unique @db.Char(2)
+  nameUk String
+  nameEn String
+  cities City[]
+}
+
+model City {
+  id              String          @id @default(uuid()) @db.Uuid
+  countryId       String          @db.Uuid
+  country         Country         @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  name            String
+  region          String          @default("")
+  slug            String
+  geonamesId      Int?            @unique
+  boundaryVersion String          @default("unverified")
+  profiles        SearchProfile[]
+  businesses      Business[]
+
+  @@unique([countryId, region, slug])
+  @@index([countryId])
+}
+
+model Category {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String
+  taxonomyCode String? @unique
+  synonyms     Json    @default("[]")
+}
+
+model SearchProfile {
+  id              String            @id @default(uuid()) @db.Uuid
+  cityId          String            @db.Uuid
+  city            City              @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  queryOriginal   String
+  queryNormalized String
+  aliases         Json              @default("[]")
+  boundaryVersion String
+  profileHash     String            @unique
+  createdAt       DateTime          @default(now())
+  memberships     ProfileBusiness[]
+  runs            SearchRun[]
+}
+
+model Brand {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  canonicalDomain String?
+  businesses      Business[]
+}
+
+model Business {
+  id              String              @id @default(uuid()) @db.Uuid
+  cityId          String              @db.Uuid
+  city            City                @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  brandId         String?             @db.Uuid
+  brand           Brand?              @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  canonicalName   String
+  creationKey     String?             @unique
+  creationHash    String?
+  normalizedName  String
+  address         String
+  website         String              @default("")
+  instagram       String              @default("")
+  websiteLocked   Boolean             @default(false)
+  operatingStatus OperatingStatus     @default(unknown)
+  firstSeenAt     DateTime            @default(now())
+  lastSeenAt      DateTime            @default(now())
+  lastChangedAt   DateTime            @default(now())
+  archivedAt      DateTime?
+  revision        Int                 @default(1)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  crm             CrmEntry?
+  facts           BusinessFact[]
+  sources         BusinessSource[]
+  memberships     ProfileBusiness[]
+  events          ChangeEvent[]
+  mapsChecks      MapsManualCheck[]
+  observations    SourceObservation[]
+
+  @@index([cityId, normalizedName])
+  @@index([website])
+}
+
+model CrmEntry {
+  businessId      String    @id @db.Uuid
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  status          CrmStatus @default(new)
+  priority        String    @default("Звичайний")
+  notes           String    @default("")
+  ownerId         String    @db.Uuid
+  doNotContact    Boolean   @default(false)
+  lastContactedAt DateTime?
+  nextFollowupAt  DateTime?
+}
+
+model ProfileBusiness {
+  profileId         String          @db.Uuid
+  profile           SearchProfile   @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  businessId        String          @db.Uuid
+  business          Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  firstDiscoveredAt DateTime        @default(now())
+  lastConfirmedAt   DateTime?
+  discoveryStatus   DiscoveryStatus @default(unchecked)
+
+  @@id([profileId, businessId])
+}
+
+model LicenseRegistry {
+  id              String           @id
+  sourceName      String
+  licenseCode     String
+  attributionText String
+  licenseUrl      String?
+  version         String
+  allowStorage    Boolean          @default(false)
+  allowExport     Boolean          @default(false)
+  revokedAt       DateTime?
+  expiresAt       DateTime?
+  sources         BusinessSource[]
+}
+
+model BusinessSource {
+  id          String          @id @default(uuid()) @db.Uuid
+  businessId  String          @db.Uuid
+  business    Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  sourceType  String
+  externalId  String?
+  sourceRef   String
+  licenseId   String
+  license     LicenseRegistry @relation(fields: [licenseId], references: [id], onDelete: Restrict)
+  releaseId   String?
+  firstSeenAt DateTime        @default(now())
+  lastSeenAt  DateTime        @default(now())
+  facts       BusinessFact[]
+
+  @@unique([sourceType, externalId])
+}
+
+model BusinessFact {
+  id         String         @id @default(uuid()) @db.Uuid
+  businessId String         @db.Uuid
+  business   Business       @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  sourceId   String         @db.Uuid
+  source     BusinessSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  fieldName  String
+  value      Json
+  provenance Json
+  observedAt DateTime       @default(now())
+  isManual   Boolean        @default(false)
+  isLocked   Boolean        @default(false)
+  isCurrent  Boolean        @default(true)
+
+  @@index([businessId, fieldName, isCurrent])
+}
+
+model SearchRun {
+  id             String              @id @default(uuid()) @db.Uuid
+  profileId      String              @db.Uuid
+  profile        SearchProfile       @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  triggeredBy    String              @db.Uuid
+  idempotencyKey String              @unique
+  state          String              @default("queued")
+  mode           String              @default("refresh")
+  startedAt      DateTime            @default(now())
+  finishedAt     DateTime?
+  counts         Json                @default("{}")
+  sourceVersions Json                @default("{}")
+  errorSummary   String?
+  sources        SourceRunStatus[]
+  events         ChangeEvent[]
+  observations   SourceObservation[]
+
+  @@index([profileId, startedAt(sort: Desc)])
+}
+
+model SourceRunStatus {
+  id            String    @id @default(uuid()) @db.Uuid
+  runId         String    @db.Uuid
+  run           SearchRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  sourceType    String
+  sourceVersion String
+  scopeHash     String
+  state         String
+  itemsScanned  Int       @default(0)
+  error         String?
+  finishedAt    DateTime?
+
+  @@unique([runId, sourceType])
+}
+
+model SourceObservation {
+  id              String    @id @default(uuid()) @db.Uuid
+  runId           String    @db.Uuid
+  run             SearchRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  sourceType      String
+  businessId      String    @db.Uuid
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  observedPresent Boolean
+  observedAt      DateTime  @default(now())
+
+  @@unique([runId, sourceType, businessId])
+  @@index([businessId, sourceType])
+}
+
+model ChangeEvent {
+  id         String     @id @default(uuid()) @db.Uuid
+  businessId String     @db.Uuid
+  business   Business   @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  runId      String?    @db.Uuid
+  run        SearchRun? @relation(fields: [runId], references: [id], onDelete: Restrict)
+  eventType  String
+  fieldName  String?
+  before     Json?
+  after      Json?
+  actorId    String?    @db.Uuid
+  createdAt  DateTime   @default(now())
+
+  @@index([businessId, createdAt(sort: Desc)])
+}
+
+model MapsManualCheck {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  userId     String   @db.Uuid
+  status     String
+  comment    String   @default("")
+  checkedAt  DateTime @default(now())
+}
+
+model Export {
+  id        String    @id @default(uuid()) @db.Uuid
+  createdBy String    @db.Uuid
+  filters   Json
+  format    String
+  rowCount  Int
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}

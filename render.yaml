@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: lead-finder-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @lead-finder/api... build
+    startCommand: corepack pnpm --filter @lead-finder/db migrate && corepack pnpm --filter @lead-finder/db seed && node apps/api/dist/main.js
+    healthCheckPath: /api/v1/health/ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: API_PROXY_KEY
+        sync: false
+      - key: OWNER_SETUP_TOKEN
+        sync: false
+      - key: WEB_ORIGINS
+        value: https://lead-finder-bay-five.vercel.app

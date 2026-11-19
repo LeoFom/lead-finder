@@ -4,12 +4,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "validate": "prisma validate",
-    "check": "prisma db execute --file prisma/check.sql"
+    "check": "prisma db execute --file prisma/check.sql",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate deploy",
+    "seed": "node dist/seed.js"
   },
   "devDependencies": {
-    "prisma": "^7.0.0"
+    "prisma": "^7.0.0",
+    "@types/pg": "^8.15.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@prisma/client": "^7.0.0",
+    "@prisma/adapter-pg": "^7.0.0",
+    "pg": "^8.16.0"
   }
 }

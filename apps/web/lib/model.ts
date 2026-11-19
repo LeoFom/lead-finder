@@ -15,13 +15,14 @@ export interface Profile {
   query: string;
 }
 export interface Business {
+  revision?: number;
   id: string;
   name: string;
   address: string;
   website: string;
   instagram: string;
-  discovery: 'seen' | 'missing_once' | 'reappeared';
-  operating: 'operational' | 'unknown';
+  discovery: 'unchecked' | 'seen' | 'missing_once' | 'missing_multiple' | 'reappeared';
+  operating: 'operational' | 'unknown' | 'temporarily_closed' | 'permanently_closed';
   crm: CrmStatus;
   priority: 'Звичайний' | 'Високий';
   notes: string;

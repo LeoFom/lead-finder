@@ -13,6 +13,9 @@ jobs:
     timeout-minutes: 20
     env:
       NEXT_TELEMETRY_DISABLED: '1'
+      API_PROXY_KEY: ci-only-proxy-key-0000000000000000000000
+      OWNER_SETUP_TOKEN: ci-only-setup-code-000000000000000000000
+      WEB_ORIGINS: http://localhost:3000
       DATABASE_URL: postgresql://lead_finder:ci_only@127.0.0.1:5432/lead_finder
     services:
       postgres:
@@ -39,6 +42,9 @@ jobs:
       - run: pnpm db:validate
       - run: pnpm db:check
       - run: pnpm build
+      - run: pnpm --filter @lead-finder/db migrate
+      - run: pnpm --filter @lead-finder/db seed
+      - run: pnpm test:api
       - name: Start all three development processes
         shell: bash
         run: |

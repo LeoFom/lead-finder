@@ -899,3 +899,23 @@ form .check-label {
 dialog::backdrop {
   background: #18284555;
 }
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.auth-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 430px;
+  background: white;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}

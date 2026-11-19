@@ -17,7 +17,7 @@ const manualGrant: SourceGrant = {
   sourceType: 'manual',
   license: 'owner-original-v1',
   dataset: 'independent-user-observation',
-  fields: ['business_name', 'website_url', 'instagram_url', 'maps_manual_check_status'],
+  fields: ['business_name', 'address', 'website_url', 'instagram_url', 'maps_manual_check_status'],
   canStore: true,
   canExport: true,
   expiresAt: null,

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { demoGateway } from '../lib/gateway';
+import { leadGateway as demoGateway } from '../lib/gateway';
+import { isApiMode, addBusiness, exportBusinesses, api } from '../lib/api-gateway';
 import type { CrmPatch } from '../lib/gateway';
 import { crmLabels } from '../lib/model';
 import type { Business, DemoState } from '../lib/model';
@@ -35,8 +36,8 @@ function Editor({
     setBusy(true);
     try {
       await save(draft);
-    } catch {
-      setError('Не вдалося зберегти. Перевірте сховище браузера.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не вдалося зберегти.');
     } finally {
       setBusy(false);
     }
@@ -152,6 +153,7 @@ export function LeadWorkspace() {
   const [selected, setSelected] = useState<string[]>([]);
   const [opened, setOpened] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -160,7 +162,7 @@ export function LeadWorkspace() {
       .load()
       .then(setState)
       .catch(() =>
-        setError('Не вдалося прочитати демодані. Перевірте доступ до сховища браузера.'),
+        setError('Не вдалося завантажити базу. Оновіть сторінку або увійдіть повторно.'),
       );
   }, []);
   const workspace = state?.workspaces[state.activeKey];
@@ -172,8 +174,8 @@ export function LeadWorkspace() {
       await new Promise((resolve) => setTimeout(resolve, 700));
       setState(await demoGateway.scan());
       setMessage('Демоскан завершено. Історію та ручні CRM-правки збережено.');
-    } catch {
-      setError('Не вдалося завершити демоскан.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не вдалося оновити пошук.');
     } finally {
       setBusy(false);
     }
@@ -230,8 +232,16 @@ export function LeadWorkspace() {
           : 0,
     );
   const business = workspace.businesses.find((b) => b.id === opened);
-  function exportCsv() {
+  async function exportCsv() {
     const exportRows = selected.length ? rows.filter((b) => selected.includes(b.id)) : rows;
+    if (isApiMode) {
+      try {
+        await exportBusinesses(exportRows.map((b) => b.id));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Помилка експорту');
+      }
+      return;
+    }
     const cell = (value: string) =>
       '"' + (/^[=+@\-\t\r]/.test(value) ? "'" + value : value).replaceAll('"', '""') + '"';
     const csv = [
@@ -298,8 +308,12 @@ export function LeadWorkspace() {
         </nav>
         <div className="sidebar-note">
           <span className="demo-dot" />
-          Демо-простір
-          <p>Вигадані бізнеси для перевірки інтерфейсу. Зміни зберігаються у вашому браузері.</p>
+          {isApiMode ? 'Приватний простір' : 'Демо-простір'}
+          <p>
+            {isApiMode
+              ? 'Ваші бізнеси, CRM та історія зберігаються у PostgreSQL.'
+              : 'Вигадані бізнеси для перевірки інтерфейсу. Зміни зберігаються у вашому браузері.'}
+          </p>
         </div>
         <div className="user">
           <span className="user-avatar">ЛФ</span>
@@ -313,7 +327,23 @@ export function LeadWorkspace() {
           <span>
             Мій простір <span className="breadcrumb">/ {view}</span>
           </span>
-          <span className="demo-pill">Демонстраційні дані</span>
+          <div className="header-actions">
+            <span className="demo-pill">{isApiMode ? 'Приватна CRM' : 'Демонстраційні дані'}</span>
+            {isApiMode && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api('auth/logout', {}, 'POST');
+                    window.location.reload();
+                  } catch {
+                    setError('Не вдалося вийти');
+                  }
+                }}
+              >
+                Вийти
+              </button>
+            )}
+          </div>
         </header>
         <main className="content">
           <div className="page-heading">
@@ -335,7 +365,11 @@ export function LeadWorkspace() {
               </h2>
               <p>
                 {workspace.profile.query}{' '}
-                <span className="subtle">· Демоскан {date(workspace.runs[0]!.at)}</span>
+                <span className="subtle">
+                  {workspace.runs[0]
+                    ? '· Оновлено ' + date(workspace.runs[0].at)
+                    : '· Пошукове джерело очікує підключення'}
+                </span>
               </p>
             </div>
             <button className="outline" disabled={busy} onClick={scan}>
@@ -391,9 +425,16 @@ export function LeadWorkspace() {
                   {view === 'CRM' ? 'Контакти у роботі' : 'База бізнесів'}{' '}
                   <span>{rows.length}</span>
                 </h2>
-                <button className="outline" onClick={exportCsv} disabled={!rows.length}>
-                  ↓ Експорт CSV{selected.length ? ` (${selected.length})` : ''}
-                </button>
+                <div className="header-actions">
+                  {isApiMode && (
+                    <button className="primary" onClick={() => setAddOpen(true)}>
+                      ＋ Додати бізнес
+                    </button>
+                  )}
+                  <button className="outline" onClick={exportCsv} disabled={!rows.length}>
+                    ↓ Експорт CSV{selected.length ? ` (${selected.length})` : ''}
+                  </button>
+                </div>
               </div>
               <div className="table-toolbar">
                 <label className="search-field">
@@ -553,7 +594,7 @@ export function LeadWorkspace() {
                   Показано {rows.length} із {workspace.businesses.length}
                   {selected.length ? ` · вибрано ${selected.length}` : ''}
                 </span>
-                <span>Джерело — демонабір</span>
+                <span>{isApiMode ? 'Власні незалежні спостереження' : 'Джерело — демонабір'}</span>
               </footer>
             </section>
           ) : view === 'Історія змін' ? (
@@ -605,7 +646,11 @@ export function LeadWorkspace() {
           save={async (patch) => {
             setState(await demoGateway.updateBusiness(business.id, patch));
             setOpened(null);
-            setMessage('Ручні зміни збережено в цьому браузері.');
+            setMessage(
+              isApiMode
+                ? 'Ручні зміни збережено в базі.'
+                : 'Ручні зміни збережено в цьому браузері.',
+            );
           }}
         />
       )}
@@ -625,7 +670,11 @@ export function LeadWorkspace() {
                 ✕
               </button>
             </div>
-            <p className="muted">Спробуйте робочий процес на вигаданих бізнесах.</p>
+            <p className="muted">
+              {isApiMode
+                ? 'Створіть профіль для міста й категорії бізнесів.'
+                : 'Спробуйте робочий процес на вигаданих бізнесах.'}
+            </p>
             <label>
               Країна
               <input value="Україна" readOnly />
@@ -651,14 +700,100 @@ export function LeadWorkspace() {
               />
             </label>
             <p className="notice">
-              Кожне місто й запит мають окремий демопрофіль. Попередні записи зберігаються.
+              Кожне місто й запит мають окремий профіль. Попередні записи зберігаються.
             </p>
             <button className="primary full" disabled={busy}>
-              Відкрити демопошук
+              {isApiMode ? 'Відкрити профіль' : 'Відкрити демопошук'}
             </button>
           </form>
         </dialog>
       )}
+      {addOpen && (
+        <AddBusiness
+          close={() => setAddOpen(false)}
+          save={async (input) => {
+            setState(await addBusiness(input));
+            setAddOpen(false);
+            setMessage('Бізнес додано до бази.');
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function AddBusiness({
+  close,
+  save,
+}: {
+  close: () => void;
+  save: (input: {
+    name: string;
+    address: string;
+    website: string;
+    independentObservation: boolean;
+  }) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true);
+    const form = new FormData(e.currentTarget);
+    try {
+      await save({
+        name: String(form.get('name')),
+        address: String(form.get('address')),
+        website: String(form.get('website')),
+        independentObservation: form.get('rights') === 'on',
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не вдалося додати бізнес');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <dialog
+      className="search-dialog"
+      ref={(node) => {
+        if (node && !node.open) node.showModal();
+      }}
+      onCancel={close}
+    >
+      <form onSubmit={submit}>
+        <div className="inspector-top">
+          <h2>Додати бізнес</h2>
+          <button type="button" onClick={close} aria-label="Закрити">
+            ✕
+          </button>
+        </div>
+        <label>
+          Назва
+          <input name="name" required maxLength={200} />
+        </label>
+        <label>
+          Адреса
+          <input name="address" required maxLength={300} />
+        </label>
+        <label>
+          Сайт
+          <input name="website" maxLength={500} placeholder="https://clinic.example" />
+        </label>
+        <label className="check-label">
+          <input name="rights" type="checkbox" required />
+          Це мої незалежно перевірені дані, які дозволено зберігати та експортувати. Контент Google
+          Maps або пошукової видачі сюди не переношу.
+        </label>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        <button className="primary full" disabled={busy}>
+          Зберегти бізнес
+        </button>
+      </form>
+    </dialog>
   );
 }

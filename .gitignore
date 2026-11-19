@@ -8,3 +8,4 @@ dist/
 !.env.example
 apps/web/next-env.d.ts
 coverage/
+packages/db/src/generated/

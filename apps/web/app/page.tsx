@@ -1,4 +1,4 @@
-import { LeadWorkspace } from './workspace';
+import { PrivateApp } from './private-app';
 export default function HomePage() {
-  return <LeadWorkspace />;
+  return <PrivateApp />;
 }

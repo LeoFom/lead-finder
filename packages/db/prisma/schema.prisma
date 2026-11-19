@@ -1,4 +1,0 @@
-// Domain models and their first migration belong to phase 2.
-datasource db {
-  provider = "postgresql"
-}
