@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { leadGateway as demoGateway } from '../lib/gateway';
 import { isApiMode, addBusiness, exportBusinesses, api } from '../lib/api-gateway';
+import { useLocalMode } from './local-access';
+import { lockLocal } from '../lib/offline-vault';
 import type { CrmPatch } from '../lib/gateway';
 import { crmLabels } from '../lib/model';
 import type { Business, DemoState } from '../lib/model';
@@ -145,6 +147,7 @@ function Editor({
 }
 
 export function LeadWorkspace() {
+  const local = useLocalMode();
   const [state, setState] = useState<DemoState | null>(null);
   const [view, setView] = useState<View>('Бізнеси');
   const [filter, setFilter] = useState('all');
@@ -157,6 +160,15 @@ export function LeadWorkspace() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    const onCachedReport = (event: Event) =>
+      setMessage(
+        'Звіт сформовано з дозволеної копії станом на ' +
+          new Date((event as CustomEvent<string>).detail).toLocaleString('uk-UA'),
+      );
+    window.addEventListener('lead-cached-report', onCachedReport);
+    return () => window.removeEventListener('lead-cached-report', onCachedReport);
+  }, []);
   useEffect(() => {
     demoGateway
       .load()
@@ -310,11 +322,13 @@ export function LeadWorkspace() {
         </nav>
         <div className="sidebar-note">
           <span className="demo-dot" />
-          {isApiMode ? 'Приватний простір' : 'Демо-простір'}
+          {local ? 'Локальна база' : isApiMode ? 'Приватний простір' : 'Демо-простір'}
           <p>
-            {isApiMode
-              ? 'Ваші бізнеси, CRM та історія зберігаються у PostgreSQL.'
-              : 'Вигадані бізнеси для перевірки інтерфейсу. Зміни зберігаються у вашому браузері.'}
+            {local
+              ? 'Зашифровані дані в цьому браузері. Пошук і CSV працюють без API.'
+              : isApiMode
+                ? 'Ваші бізнеси, CRM та історія зберігаються у PostgreSQL.'
+                : 'Вигадані бізнеси для перевірки інтерфейсу. Зміни зберігаються у вашому браузері.'}
           </p>
         </div>
         <div className="user">
@@ -330,11 +344,17 @@ export function LeadWorkspace() {
             Мій простір <span className="breadcrumb">/ {view}</span>
           </span>
           <div className="header-actions">
-            <span className="demo-pill">{isApiMode ? 'Приватна CRM' : 'Демонстраційні дані'}</span>
+            <span className="demo-pill">
+              {local ? 'Локально · без БД' : isApiMode ? 'Приватна CRM' : 'Демонстраційні дані'}
+            </span>
             {isApiMode && (
               <button
                 onClick={async () => {
                   try {
+                    if (local) {
+                      lockLocal();
+                      return;
+                    }
                     await api('auth/logout', {}, 'POST');
                     window.location.reload();
                   } catch {
@@ -374,8 +394,21 @@ export function LeadWorkspace() {
                 </span>
               </p>
             </div>
-            <button className="outline" disabled={busy} onClick={scan}>
-              {busy ? 'Оновлюємо…' : '↻ Оновити пошук'}
+            <button
+              className="outline"
+              disabled={busy}
+              onClick={() => {
+                if (local) {
+                  document
+                    .querySelector<HTMLInputElement>('[aria-label="Пошук у таблиці"]')
+                    ?.focus();
+                  setMessage('Пошук працює серед локально збережених бізнесів.');
+                } else {
+                  void scan();
+                }
+              }}
+            >
+              {local ? 'Пошук у збереженій базі' : busy ? 'Оновлюємо…' : '↻ Оновити пошук'}
             </button>
           </section>
           {busy && (

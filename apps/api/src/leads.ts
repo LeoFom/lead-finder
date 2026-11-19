@@ -192,6 +192,82 @@ export class LeadController {
     return { version: 1, activeKey: current.activeProfileId, workspaces, mode: 'api' };
   }
 
+  @Get('offline-snapshot')
+  async offlineSnapshot(@Req() req: OwnerRequest) {
+    const owner = await this.db.user.findUniqueOrThrow({ where: { id: req.ownerId } });
+    const profiles = await this.db.searchProfile.findMany({
+      include: {
+        city: true,
+        memberships: {
+          include: {
+            business: {
+              include: {
+                crm: true,
+                facts: {
+                  where: { isCurrent: true },
+                  include: { source: { include: { license: true } } },
+                },
+              },
+            },
+          },
+          take: 500,
+        },
+      },
+    });
+    const workspaces: Record<string, unknown> = {};
+    for (const profile of profiles) {
+      const businesses = [];
+      for (const membership of profile.memberships) {
+        const b = membership.business;
+        if (b.crm?.ownerId !== req.ownerId) continue;
+        const values: Record<string, string> = {};
+        for (const fact of b.facts) {
+          const source = fact.source,
+            license = source.license;
+          if (
+            source.sourceType !== 'manual' ||
+            source.sourceRef !== `owner:${req.ownerId}` ||
+            license.id !== 'owner-original-v1' ||
+            license.expiresAt ||
+            license.revokedAt ||
+            !license.allowStorage ||
+            !license.allowExport
+          )
+            continue;
+          const evidence = fact.provenance as unknown as ReturnType<typeof provenance>;
+          try {
+            requireSourceRights('store', [evidence]);
+            requireSourceRights('export', [evidence]);
+          } catch {
+            continue;
+          }
+          if (typeof fact.value === 'string') values[fact.fieldName] = fact.value;
+        }
+        if (!values.business_name || !values.address) continue;
+        businesses.push({
+          ...present(b, membership.discoveryStatus),
+          name: values.business_name,
+          address: values.address,
+          website: values.website_url ?? '',
+          instagram: values.instagram_url ?? '',
+        });
+      }
+      // The offline copy receives only independently owned manual facts. External source histories stay server-side.
+      workspaces[profile.id] = {
+        profile: { city: profile.city.name, query: profile.queryOriginal },
+        businesses,
+        changes: [],
+        runs: [],
+      };
+    }
+    const activeKey = owner.activeProfileId ?? Object.keys(workspaces)[0];
+    if (!activeKey) throw new ConflictException('Спочатку відкрийте профіль пошуку');
+    return {
+      state: { version: 1, activeKey, workspaces },
+      snapshotAt: new Date().toISOString(),
+      policy: 'independent-manual-only-v1',
+    };
+  }
   @Get('businesses')
   async businesses(@Query() query: Record<string, unknown>) {
     const input = parse(

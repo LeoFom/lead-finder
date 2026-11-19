@@ -110,6 +110,9 @@ test('private API persists CRM, records history, enforces revision and licenses'
       detail.facts.filter((f) => f.fieldName === 'website_url' && f.isCurrent).length,
       1,
     );
+    const snapshot = await (await request('offline-snapshot')).json();
+    assert.equal(snapshot.policy, 'independent-manual-only-v1');
+    assert.equal(snapshot.state.workspaces[profileId].businesses[0].website, patch.website);
     const csv = await request('exports/csv', { ids: [created.id] }, 'POST');
     assert.equal(csv.status, 201);
     assert.match(await csv.text(), /manual.example/);

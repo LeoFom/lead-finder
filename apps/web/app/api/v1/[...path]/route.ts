@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 const allowed = new Set([
   'auth',
   'workspace',
+  'offline-snapshot',
   'countries',
   'cities',
   'search-profiles',

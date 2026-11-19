@@ -919,3 +919,6 @@ dialog::backdrop {
   border: 1px solid var(--line);
   border-radius: 12px;
 }
+
+.local-tools { position:fixed; bottom:12px; right:18px; z-index:22; display:flex; align-items:center; gap:10px; padding:10px 14px; background:#edf2ff; border:1px solid #c9d6ff; border-radius:8px; box-shadow:0 3px 16px #263b6022; max-width:calc(100% - 36px); flex-wrap:wrap; font-size:11px; }
+.local-tools button { color:#3154cd; font-weight:700; }
