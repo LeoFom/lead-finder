@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm --filter @lead-finder/api... build
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm --filter @lead-finder/api... build
     startCommand: corepack pnpm --filter @lead-finder/db migrate && corepack pnpm --filter @lead-finder/db seed && node apps/api/dist/main.js
     healthCheckPath: /api/v1/health/ready
     autoDeployTrigger: checksPass
