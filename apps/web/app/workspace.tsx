@@ -71,7 +71,7 @@ function Editor({
           Останнє виявлення<strong>{date(business.lastSeen)}</strong>
         </span>
         <span>
-          Походження<strong>Синтетичні fixtures</strong>
+          Походження<strong>{isApiMode ? 'Власна ручна перевірка' : 'Синтетичні fixtures'}</strong>
         </span>
       </div>
       <form onSubmit={submit}>
@@ -197,7 +197,9 @@ export function LeadWorkspace() {
       setFilter('all');
       setTerm('');
       setView('Бізнеси');
-      setMessage('Відкрито демонстраційний профіль пошуку.');
+      setMessage(
+        isApiMode ? 'Профіль пошуку відкрито.' : 'Відкрито демонстраційний профіль пошуку.',
+      );
     } catch {
       setError('Не вдалося відкрити профіль.');
     } finally {
@@ -378,7 +380,7 @@ export function LeadWorkspace() {
           </section>
           {busy && (
             <div className="progress" role="status">
-              Обробка демонстраційного набору…
+              {isApiMode ? 'Обробка запиту…' : 'Обробка демонстраційного набору…'}
             </div>
           )}
           {error && (
@@ -619,7 +621,11 @@ export function LeadWorkspace() {
           ) : (
             <section className="results activity">
               <h2>Запуски пошуку</h2>
-              <p className="muted">Синтетичні дані. Зовнішні API не викликаються.</p>
+              <p className="muted">
+                {isApiMode
+                  ? 'Пошукове джерело очікує підключення. Перевірені бізнеси можна додавати вручну.'
+                  : 'Синтетичні дані. Зовнішні API не викликаються.'}
+              </p>
               {workspace.runs.map((run) => (
                 <div className="run" key={run.id}>
                   <div>
