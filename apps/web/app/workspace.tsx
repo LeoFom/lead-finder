@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { leadGateway as demoGateway } from '../lib/gateway';
-import { isApiMode, addBusiness, exportBusinesses, api } from '../lib/api-gateway';
-import { useLocalMode } from './local-access';
+import { leadGateway } from '../lib/gateway';
+import { addBusiness, exportBusinesses } from '../lib/api-gateway';
+import { useLocalMode, useGuestMode } from './local-access';
 import { lockLocal } from '../lib/offline-vault';
 import type { CrmPatch } from '../lib/gateway';
 import { crmLabels } from '../lib/model';
@@ -73,7 +73,7 @@ function Editor({
           Останнє виявлення<strong>{date(business.lastSeen)}</strong>
         </span>
         <span>
-          Походження<strong>{isApiMode ? 'Власна ручна перевірка' : 'Синтетичні fixtures'}</strong>
+          Походження<strong>Власна ручна перевірка</strong>
         </span>
       </div>
       <form onSubmit={submit}>
@@ -148,6 +148,7 @@ function Editor({
 
 export function LeadWorkspace() {
   const local = useLocalMode();
+  const guest = useGuestMode();
   const [state, setState] = useState<DemoState | null>(null);
   const [view, setView] = useState<View>('Бізнеси');
   const [filter, setFilter] = useState('all');
@@ -170,7 +171,7 @@ export function LeadWorkspace() {
     return () => window.removeEventListener('lead-cached-report', onCachedReport);
   }, []);
   useEffect(() => {
-    demoGateway
+    leadGateway
       .load()
       .then(setState)
       .catch(() =>
@@ -184,7 +185,7 @@ export function LeadWorkspace() {
     setError('');
     try {
       await new Promise((resolve) => setTimeout(resolve, 700));
-      setState(await demoGateway.scan());
+      setState(await leadGateway.scan());
       setMessage('Демоскан завершено. Історію та ручні CRM-правки збережено.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не вдалося оновити пошук.');
@@ -198,7 +199,7 @@ export function LeadWorkspace() {
     setBusy(true);
     try {
       setState(
-        await demoGateway.selectProfile({
+        await leadGateway.selectProfile({
           city: String(data.get('city')),
           query: String(data.get('query')).trim(),
         }),
@@ -209,9 +210,7 @@ export function LeadWorkspace() {
       setFilter('all');
       setTerm('');
       setView('Бізнеси');
-      setMessage(
-        isApiMode ? 'Профіль пошуку відкрито.' : 'Відкрито демонстраційний профіль пошуку.',
-      );
+      setMessage('Профіль пошуку відкрито.');
     } catch {
       setError('Не вдалося відкрити профіль.');
     } finally {
@@ -248,49 +247,11 @@ export function LeadWorkspace() {
   const business = workspace.businesses.find((b) => b.id === opened);
   async function exportCsv() {
     const exportRows = selected.length ? rows.filter((b) => selected.includes(b.id)) : rows;
-    if (isApiMode) {
-      try {
-        await exportBusinesses(exportRows.map((b) => b.id));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Помилка експорту');
-      }
-      return;
+    try {
+      await exportBusinesses(exportRows.map((b) => b.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Помилка експорту');
     }
-    const cell = (value: string) =>
-      '"' + (/^[=+@\-\t\r]/.test(value) ? "'" + value : value).replaceAll('"', '""') + '"';
-    const csv = [
-      [
-        'ID',
-        'Назва',
-        'Місто',
-        'Адреса',
-        'Сайт',
-        'Instagram (демо)',
-        'CRM',
-        'Походження',
-        'Ліцензія',
-      ],
-      ...exportRows.map((b) => [
-        b.id,
-        b.name,
-        workspace!.profile.city,
-        b.address,
-        b.website,
-        b.instagram,
-        crmLabels[b.crm],
-        'Синтетичні демонстраційні дані',
-        'Fixtures authored for Lead Finder',
-      ]),
-    ]
-      .map((row) => row.map(cell).join(';'))
-      .join('\r\n');
-    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'lead-finder-demo.csv';
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setMessage(`Експортовано ${exportRows.length} демонстраційних записів.`);
   }
   return (
     <div className="app-shell">
@@ -322,19 +283,19 @@ export function LeadWorkspace() {
         </nav>
         <div className="sidebar-note">
           <span className="demo-dot" />
-          {local ? 'Локальна база' : isApiMode ? 'Приватний простір' : 'Демо-простір'}
+          {guest ? 'Гостьовий простір' : local ? 'Локальна база' : 'Приватний простір'}
           <p>
-            {local
-              ? 'Зашифровані дані в цьому браузері. Пошук і CSV працюють без API.'
-              : isApiMode
-                ? 'Ваші бізнеси, CRM та історія зберігаються у PostgreSQL.'
-                : 'Вигадані бізнеси для перевірки інтерфейсу. Зміни зберігаються у вашому браузері.'}
+            {guest
+              ? 'Дані зберігаються в цьому браузері без пароля. Сервер та реєстрація не потрібні.'
+              : local
+                ? 'Зашифровані дані в цьому браузері. Пошук і CSV працюють без API.'
+                : 'Ваші бізнеси, CRM та історія зберігаються у PostgreSQL.'}
           </p>
         </div>
         <div className="user">
-          <span className="user-avatar">ЛФ</span>
+          <span className="user-avatar">{guest ? 'Г' : 'ЛФ'}</span>
           <div>
-            Мій простір<small>Власник</small>
+            Мій простір<small>{guest ? 'Гість' : 'Власник'}</small>
           </div>
         </div>
       </aside>
@@ -345,26 +306,27 @@ export function LeadWorkspace() {
           </span>
           <div className="header-actions">
             <span className="demo-pill">
-              {local ? 'Локально · без БД' : isApiMode ? 'Приватна CRM' : 'Демонстраційні дані'}
+              {guest ? 'Гостьовий режим' : local ? 'Локально · без БД' : 'Приватна CRM'}
             </span>
-            {isApiMode && (
-              <button
-                onClick={async () => {
-                  try {
-                    if (local) {
-                      lockLocal();
-                      return;
-                    }
-                    await api('auth/logout', {}, 'POST');
-                    window.location.reload();
-                  } catch {
-                    setError('Не вдалося вийти');
+            <button
+              onClick={async () => {
+                try {
+                  if (guest) {
+                    window.dispatchEvent(new Event('lead-open-login'));
+                    return;
                   }
-                }}
-              >
-                Вийти
-              </button>
-            )}
+                  if (local) {
+                    lockLocal();
+                    return;
+                  }
+                  window.dispatchEvent(new Event('lead-leave-account'));
+                } catch {
+                  setError('Не вдалося вийти');
+                }
+              }}
+            >
+              {guest ? 'Увійти' : local ? 'Заблокувати' : 'Вийти в гостьовий режим'}
+            </button>
           </div>
         </header>
         <main className="content">
@@ -398,7 +360,7 @@ export function LeadWorkspace() {
               className="outline"
               disabled={busy}
               onClick={() => {
-                if (local) {
+                if (local || guest) {
                   document
                     .querySelector<HTMLInputElement>('[aria-label="Пошук у таблиці"]')
                     ?.focus();
@@ -408,12 +370,12 @@ export function LeadWorkspace() {
                 }
               }}
             >
-              {local ? 'Пошук у збереженій базі' : busy ? 'Оновлюємо…' : '↻ Оновити пошук'}
+              {local || guest ? 'Пошук у збереженій базі' : busy ? 'Оновлюємо…' : '↻ Оновити пошук'}
             </button>
           </section>
           {busy && (
             <div className="progress" role="status">
-              {isApiMode ? 'Обробка запиту…' : 'Обробка демонстраційного набору…'}
+              Обробка запиту…
             </div>
           )}
           {error && (
@@ -461,11 +423,9 @@ export function LeadWorkspace() {
                   <span>{rows.length}</span>
                 </h2>
                 <div className="header-actions">
-                  {isApiMode && (
-                    <button className="primary" onClick={() => setAddOpen(true)}>
-                      ＋ Додати бізнес
-                    </button>
-                  )}
+                  <button className="primary" onClick={() => setAddOpen(true)}>
+                    ＋ Додати бізнес
+                  </button>
                   <button className="outline" onClick={exportCsv} disabled={!rows.length}>
                     ↓ Експорт CSV{selected.length ? ` (${selected.length})` : ''}
                   </button>
@@ -635,7 +595,7 @@ export function LeadWorkspace() {
                   Показано {rows.length} із {workspace.businesses.length}
                   {selected.length ? ` · вибрано ${selected.length}` : ''}
                 </span>
-                <span>{isApiMode ? 'Власні незалежні спостереження' : 'Джерело — демонабір'}</span>
+                <span>Власні незалежні спостереження</span>
               </footer>
             </section>
           ) : view === 'Історія змін' ? (
@@ -661,9 +621,7 @@ export function LeadWorkspace() {
             <section className="results activity">
               <h2>Запуски пошуку</h2>
               <p className="muted">
-                {isApiMode
-                  ? 'Пошукове джерело очікує підключення. Перевірені бізнеси можна додавати вручну.'
-                  : 'Синтетичні дані. Зовнішні API не викликаються.'}
+                Пошукове джерело очікує підключення. Перевірені бізнеси можна додавати вручну.
               </p>
               {workspace.runs.map((run) => (
                 <div className="run" key={run.id}>
@@ -689,12 +647,14 @@ export function LeadWorkspace() {
           business={business}
           close={() => setOpened(null)}
           save={async (patch) => {
-            setState(await demoGateway.updateBusiness(business.id, patch));
+            setState(await leadGateway.updateBusiness(business.id, patch));
             setOpened(null);
             setMessage(
-              isApiMode
-                ? 'Ручні зміни збережено в базі.'
-                : 'Ручні зміни збережено в цьому браузері.',
+              guest
+                ? 'Гостьові зміни збережено в цьому браузері.'
+                : local
+                  ? 'Зміни збережено в зашифрованій локальній базі.'
+                  : 'Ручні зміни збережено в базі.',
             );
           }}
         />
@@ -715,11 +675,7 @@ export function LeadWorkspace() {
                 ✕
               </button>
             </div>
-            <p className="muted">
-              {isApiMode
-                ? 'Створіть профіль для міста й категорії бізнесів.'
-                : 'Спробуйте робочий процес на вигаданих бізнесах.'}
-            </p>
+            <p className="muted">Створіть профіль для міста й категорії бізнесів.</p>
             <label>
               Країна
               <input value="Україна" readOnly />
@@ -748,7 +704,7 @@ export function LeadWorkspace() {
               Кожне місто й запит мають окремий профіль. Попередні записи зберігаються.
             </p>
             <button className="primary full" disabled={busy}>
-              {isApiMode ? 'Відкрити профіль' : 'Відкрити демопошук'}
+              Відкрити профіль
             </button>
           </form>
         </dialog>

@@ -16,15 +16,31 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const { path } = await context.params;
   if (!allowed.has(path[0] ?? '') || path.some((p) => !/^[a-zA-Z0-9-]+$/.test(p)))
     return Response.json({ message: 'Маршрут не знайдено' }, { status: 404 });
-  const base = process.env.API_BASE_URL;
-  const key = process.env.API_PROXY_KEY;
-  if (!base || !key) return Response.json({ message: 'API ще не налаштовано' }, { status: 503 });
-  const url = new URL(base);
-  if (url.protocol !== 'https:' && process.env.NODE_ENV === 'production')
-    return Response.json({ message: 'Некоректна конфігурація API' }, { status: 503 });
   const origin = request.headers.get('origin');
   if (request.method !== 'GET' && origin !== request.nextUrl.origin)
     return Response.json({ message: 'Недозволене походження запиту' }, { status: 403 });
+  const logout = request.method === 'POST' && path.join('/') === 'auth/logout';
+  const signedOut = () =>
+    Response.json(
+      { authenticated: false },
+      {
+        headers: {
+          'cache-control': 'no-store',
+          'set-cookie':
+            'lf_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' +
+            (process.env.NODE_ENV === 'production' ? '; Secure' : ''),
+        },
+      },
+    );
+  const base = process.env.API_BASE_URL;
+  const key = process.env.API_PROXY_KEY;
+  if (!base || !key)
+    return logout
+      ? signedOut()
+      : Response.json({ message: 'API ще не налаштовано' }, { status: 503 });
+  const url = new URL(base);
+  if (url.protocol !== 'https:' && process.env.NODE_ENV === 'production')
+    return Response.json({ message: 'Некоректна конфігурація API' }, { status: 503 });
   const length = Number(request.headers.get('content-length') ?? 0);
   if (length > 65536) return Response.json({ message: 'Запит завеликий' }, { status: 413 });
   const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text();
@@ -45,10 +61,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
         },
         ...(body !== undefined ? { body } : {}),
         redirect: 'error',
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(logout ? 5000 : 60000),
         cache: 'no-store',
       },
     );
+    if (logout) return signedOut();
     const headers = new Headers({ 'cache-control': 'no-store' });
     for (const name of ['content-type', 'content-disposition', 'set-cookie']) {
       const value = upstream.headers.get(name);
@@ -56,6 +73,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     }
     return new Response(upstream.body, { status: upstream.status, headers });
   } catch {
+    if (logout) return signedOut();
     return Response.json(
       { message: 'API запускається або тимчасово недоступне. Повторіть запит за хвилину.' },
       { status: 503 },

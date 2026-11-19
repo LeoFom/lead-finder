@@ -1,5 +1,6 @@
 import type { DemoState } from './model.ts';
 import { emptyLocalState } from './offline-model.ts';
+import { getWorkspaceMode, setWorkspaceMode } from './workspace-mode.ts';
 const vaultKey = 'lead-finder-private-vault-v1';
 const preference = 'lead-finder-local-preferred';
 interface Envelope {
@@ -14,7 +15,6 @@ interface Payload {
   snapshotAt: string;
 }
 let session: { key: CryptoKey; envelope: Envelope; payload: Payload } | null = null;
-let localMode = false;
 const toBase64 = (data: Uint8Array) =>
   btoa(Array.from(data, (n) => String.fromCharCode(n)).join(''));
 const fromBase64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -61,7 +61,7 @@ export function prefersLocal() {
   return localStorage.getItem(preference) === 'true';
 }
 export function isLocalMode() {
-  return localMode;
+  return getWorkspaceMode() === 'local';
 }
 export function localUnlocked() {
   return session !== null;
@@ -72,17 +72,19 @@ export function localSnapshotAt() {
 export function chooseLocal() {
   if (!session) throw new Error('Розблокуйте локальний простір');
   localStorage.setItem(preference, 'true');
-  localMode = true;
-  window.dispatchEvent(new Event('lead-storage-mode'));
+  setWorkspaceMode('local');
 }
 export function chooseServer() {
   localStorage.removeItem(preference);
-  localMode = false;
+  setWorkspaceMode('server');
   session = null;
 }
 export function lockLocal() {
   session = null;
   window.location.reload();
+}
+export function forgetLocalKey() {
+  session = null;
 }
 export async function createLocalVault(passphrase: string, state = emptyLocalState()) {
   if (hasLocalVault())

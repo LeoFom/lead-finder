@@ -1,6 +1,6 @@
 import { applyDemoScan, initialState, createWorkspace, profileKey } from './model.ts';
 import type { Business, DemoState, Profile } from './model.ts';
-import { apiGateway, isApiMode } from './api-gateway';
+import { apiGateway } from './api-gateway';
 
 export type CrmPatch = Pick<Business, 'crm' | 'priority' | 'notes' | 'website' | 'websiteLocked'>;
 /** Replace the implementation with authenticated NestJS requests, keeping the UI contract. */
@@ -76,4 +76,4 @@ export const demoGateway: LeadGateway = {
     });
   },
 };
-export const leadGateway = isApiMode ? apiGateway : demoGateway;
+export const leadGateway = apiGateway;

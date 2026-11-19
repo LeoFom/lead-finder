@@ -2,7 +2,8 @@ import type { LeadGateway, CrmPatch } from './gateway';
 import type { Business, DemoState, Profile } from './model';
 import { changeLocal, chooseLocal, isLocalMode, localUnlocked, readLocal } from './offline-vault';
 import { localAdd, localEdit, localProfile, localCsv } from './offline-model';
-export const isApiMode = process.env.NEXT_PUBLIC_DATA_MODE === 'api';
+import { isGuestMode } from './workspace-mode';
+import { readGuest, changeGuest } from './guest-store';
 let safeSnapshot: { state: DemoState; snapshotAt: string } | null = null;
 export class ApiError extends Error {
   constructor(
@@ -37,13 +38,17 @@ export async function api<T>(
   const result = await response.json().catch(() => ({ message: 'Сервер тимчасово недоступний' }));
   if (!response.ok)
     throw new ApiError(response.status, result.message || 'Не вдалося виконати запит');
-  if (path === 'auth/logout') safeSnapshot = null;
+  if (['auth/login', 'auth/setup', 'auth/logout'].includes(path)) {
+    safeSnapshot = null;
+    current = null;
+  }
   return result as T;
 }
 let current: DemoState | null = null;
 export const isUnavailable = (error: unknown) =>
   error instanceof ApiError && (error.status === 0 || error.status >= 500);
 async function load() {
+  if (isGuestMode()) return readGuest();
   if (isLocalMode()) return readLocal();
   try {
     current = await api<DemoState>('workspace');
@@ -64,11 +69,14 @@ async function load() {
 export const apiGateway: LeadGateway = {
   load,
   async selectProfile(profile: Profile) {
+    if (isGuestMode()) return changeGuest((state) => localProfile(state, profile));
     if (isLocalMode()) return changeLocal((state) => localProfile(state, profile));
     await api('search-profiles', profile, 'POST');
     return load();
   },
   async updateBusiness(id: string, patch: CrmPatch) {
+    if (isGuestMode())
+      return changeGuest((state) => localEdit(state, id, patch, new Date().toISOString()));
     if (isLocalMode())
       return changeLocal((state) => localEdit(state, id, patch, new Date().toISOString()));
     const business =
@@ -78,6 +86,10 @@ export const apiGateway: LeadGateway = {
     return load();
   },
   async scan() {
+    if (isGuestMode())
+      throw new Error(
+        'Шукайте серед гостьових записів у таблиці. Зовнішнє джерело ще не підключено.',
+      );
     if (isLocalMode())
       throw new Error(
         'Локальний пошук працює в полі «Назва, адреса або домен». Для нового джерела потрібен сервер та підключений адаптер.',
@@ -92,6 +104,8 @@ export async function addBusiness(input: {
   website: string;
   independentObservation: boolean;
 }) {
+  if (isGuestMode())
+    return changeGuest((state) => localAdd(state, input, new Date().toISOString()));
   if (isLocalMode())
     return changeLocal((state) => localAdd(state, input, new Date().toISOString()));
   if (!current) throw new Error('Оновіть сторінку');
@@ -101,6 +115,14 @@ export async function addBusiness(input: {
   return load();
 }
 export async function exportBusinesses(ids: Business['id'][]) {
+  if (isGuestMode()) {
+    downloadCsv(
+      new Blob([localCsv(readGuest(), ids, new Date().toISOString())], {
+        type: 'text/csv;charset=utf-8',
+      }),
+    );
+    return;
+  }
   if (isLocalMode()) {
     downloadCsv(
       new Blob([localCsv(readLocal(), ids, new Date().toISOString())], {

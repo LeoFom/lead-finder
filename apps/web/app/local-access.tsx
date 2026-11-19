@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../lib/api-gateway';
+import { getWorkspaceMode } from '../lib/workspace-mode';
 import type { DemoState } from '../lib/model';
 import {
   chooseLocal,
@@ -19,6 +20,16 @@ export function useLocalMode() {
     return () => window.removeEventListener('lead-storage-mode', update);
   }, []);
   return local;
+}
+export function useGuestMode() {
+  const [guest, setGuest] = useState(true);
+  useEffect(() => {
+    const update = () => setGuest(getWorkspaceMode() === 'guest');
+    update();
+    window.addEventListener('lead-storage-mode', update);
+    return () => window.removeEventListener('lead-storage-mode', update);
+  }, []);
+  return guest;
 }
 export function LocalAccess({
   authenticated,
